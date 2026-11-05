@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ENV_FILE_PATH, env_file_encoding="utf-8", extra="ignore")
 
 
+    SECRET_KEY: str = "supersecretkey_michelangelo_atelier_jwt_token_2026_secret"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 gün (1440 dakika)
 
     POSTGRES_SERVER: str = "127.0.0.1"
     POSTGRES_PORT: int = 5432

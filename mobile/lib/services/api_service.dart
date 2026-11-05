@@ -70,7 +70,7 @@ class ApiService {
 
   // Mevcut 2. Hafta Metotları
   Future<List<ArtworkModel>> fetchArtworks() async {
-    final response = await http.get(Uri.parse('$baseUrl/artworks'));
+    final response = await http.get(Uri.parse('$baseUrl/api/v1/artworks'));
 
     if (response.statusCode == 200) {
       Iterable data = json.decode(response.body);
@@ -81,7 +81,7 @@ class ApiService {
   }
 
   Future<List<CategoryModel>> fetchCategories() async {
-    final response = await http.get(Uri.parse('$baseUrl/categories'));
+    final response = await http.get(Uri.parse('$baseUrl/api/v1/categories'));
 
     if (response.statusCode == 200) {
       Iterable data = json.decode(response.body);
