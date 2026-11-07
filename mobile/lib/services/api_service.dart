@@ -1,26 +1,36 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/artwork_model.dart';
 import '../models/category_model.dart';
+import 'storage_service.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://10.0.2.2:8000';
-  static const String _tokenKey = 'jwt_token';
+  final StorageService _storageService;
 
-  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+  ApiService({StorageService? storageService})
+      : _storageService = storageService ?? StorageService();
 
-  // 3. Hafta: Flutter SecureStorage ile JWT Token saklama, okuma ve silme
+  static String get baseUrl {
+    if (kIsWeb) return 'http://localhost:8000';
+    try {
+      if (Platform.isAndroid) return 'http://10.0.2.2:8000';
+    } catch (_) {}
+    return 'http://localhost:8000';
+  }
+
+  // 3. Hafta: StorageService üzerinden JWT Token saklama, okuma ve silme
   Future<void> saveToken(String token) async {
-    await _secureStorage.write(key: _tokenKey, value: token);
+    await _storageService.saveToken(token);
   }
 
   Future<String?> getToken() async {
-    return await _secureStorage.read(key: _tokenKey);
+    return await _storageService.getToken();
   }
 
   Future<void> deleteToken() async {
-    await _secureStorage.delete(key: _tokenKey);
+    await _storageService.deleteToken();
   }
 
   // 3. Hafta: Kullanıcı Girişi (/auth/login) ve Token Kaydetme
@@ -38,7 +48,7 @@ class ApiService {
     );
 
     if (response.statusCode == 200) {
-      final data = json.decode(response.body);
+      final data = json.decode(utf8.decode(response.bodyBytes));
       final token = data['access_token'] as String;
       await saveToken(token);
       return token;
@@ -70,22 +80,22 @@ class ApiService {
 
   // Mevcut 2. Hafta Metotları
   Future<List<ArtworkModel>> fetchArtworks() async {
-    final response = await http.get(Uri.parse('$baseUrl/api/v1/artworks'));
+    final response = await http.get(Uri.parse('$baseUrl/api/v1/artworks/'));
 
     if (response.statusCode == 200) {
-      Iterable data = json.decode(response.body);
-      return data.map((json) => ArtworkModel.fromJson(json)).toList();
+      Iterable data = json.decode(utf8.decode(response.bodyBytes));
+      return data.map((item) => ArtworkModel.fromJson(item)).toList();
     } else {
       throw Exception('Sanat eserleri yüklenemedi.');
     }
   }
 
   Future<List<CategoryModel>> fetchCategories() async {
-    final response = await http.get(Uri.parse('$baseUrl/api/v1/categories'));
+    final response = await http.get(Uri.parse('$baseUrl/api/v1/categories/'));
 
     if (response.statusCode == 200) {
-      Iterable data = json.decode(response.body);
-      return data.map((json) => CategoryModel.fromJson(json)).toList();
+      Iterable data = json.decode(utf8.decode(response.bodyBytes));
+      return data.map((item) => CategoryModel.fromJson(item)).toList();
     } else {
       throw Exception('Kategoriler yüklenemedi.');
     }

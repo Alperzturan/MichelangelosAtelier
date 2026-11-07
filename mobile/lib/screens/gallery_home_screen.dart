@@ -6,7 +6,7 @@ class GalleryHomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Galeri Ana Ekranı')),
+      appBar: AppBar(title: const Text("Michelangelo's Atelier")),
       body: Center(
         child: ElevatedButton(
           onPressed: () => Navigator.pushNamed(context, '/artwork-detail'),
