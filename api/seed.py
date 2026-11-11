@@ -82,7 +82,7 @@ def seed_database():
                 "title": "Davud (David)",
                 "artist": "Michelangelo Buonarroti",
                 "year": 1504,
-                "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/80/Michelangelo%27s_David_-_original_in_the_Galleria_dell%27Accademia_in_Florence.jpg/640px-Michelangelo%27s_David_-_original_in_the_Galleria_dell%27Accademia_in_Florence.jpg",
+                "image_url": "https://images.unsplash.com/photo-1582561424760-0321d75e81fa?auto=format&fit=crop&w=1200&q=80",
                 "description": "Rönesans heykel sanatının zirvesi kabul edilen 5.17 metrelik mermer heykel. Golyat'a karşı mücadeleye hazırlanan Davud'un kararlılığını ve ideal insan anatomisini yansıtır.",
                 "category_name": "Heykel Sanatı"
             },
@@ -90,7 +90,7 @@ def seed_database():
                 "title": "Adem'in Yaratılışı",
                 "artist": "Michelangelo Buonarroti",
                 "year": 1512,
-                "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Michelangelo_-_Creation_of_Adam_%28cropped%29.jpg/640px-Michelangelo_-_Creation_of_Adam_%28cropped%29.jpg",
+                "image_url": "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=1200&q=80",
                 "description": "Sistine Şapeli tavanındaki en ünlü fresk sahnesi. Tanrı'nın parmağının Adem'in parmağına neredeyse dokunarak insana yaşam kıvılcımını verdiği anı tasvir eder.",
                 "category_name": "Fresk & Tavan Resmi"
             },
@@ -98,7 +98,7 @@ def seed_database():
                 "title": "Pietà",
                 "artist": "Michelangelo Buonarroti",
                 "year": 1499,
-                "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/Michelangelo%27s_Pieta_5450_cropncleaned.jpg/640px-Michelangelo%27s_Pieta_5450_cropncleaned.jpg",
+                "image_url": "https://images.unsplash.com/photo-1577083552431-6e5fd01aa342?auto=format&fit=crop&w=1200&q=80",
                 "description": "Roma'daki Aziz Petrus Bazilikası'nda yer alan, çarmıhtan indirilen İsa'nın kucağındaki Meryem Ana'yı derin bir sükunet ve zarafetle tasvir eden mermer başyapıt.",
                 "category_name": "Heykel Sanatı"
             },
@@ -106,7 +106,7 @@ def seed_database():
                 "title": "Mona Lisa",
                 "artist": "Leonardo da Vinci",
                 "year": 1503,
-                "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Mona_Lisa%2C_by_Leonardo_da_Vinci%2C_from_C2RMF_retouched.jpg/640px-Mona_Lisa%2C_by_Leonardo_da_Vinci%2C_from_C2RMF_retouched.jpg",
+                "image_url": "https://images.unsplash.com/photo-1561214115-f2f134cc4912?auto=format&fit=crop&w=1200&q=80",
                 "description": "Louvre Müzesi'nin kalbi; sfumato tekniğinin inceliği, gizemli gülümsemesi ve arka plandaki atmosferik derinliğiyle dünyanın en tanınan tablosu.",
                 "category_name": "Yüksek Rönesans"
             },
@@ -114,7 +114,7 @@ def seed_database():
                 "title": "Son Akşam Yemeği",
                 "artist": "Leonardo da Vinci",
                 "year": 1498,
-                "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/%C3%9Alti_ma_Cena_-_Da_Vinci_5.jpg/640px-%C3%9Alti_ma_Cena_-_Da_Vinci_5.jpg",
+                "image_url": "https://images.unsplash.com/photo-1580136579312-94651dfd596d?auto=format&fit=crop&w=1200&q=80",
                 "description": "Milano'daki Santa Maria delle Grazie manastırının duvarında yer alan anıtsal duvar resmi. İsa'nın havarilerine aralarından birinin kendisine ihanet edeceğini söylediği dramatik anı betimler.",
                 "category_name": "Yüksek Rönesans"
             },
@@ -122,7 +122,7 @@ def seed_database():
                 "title": "Atina Okulu",
                 "artist": "Raffaello Sanzio",
                 "year": 1511,
-                "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/%22The_School_of_Athens%22_by_Raffaello_Sanzio_da_Urbino.jpg/640px-%22The_School_of_Athens%22_by_Raffaello_Sanzio_da_Urbino.jpg",
+                "image_url": "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1200&q=80",
                 "description": "Vatikan Apostol Sarayı'ndaki fresk. Antik Yunan felsefesinin Platon, Aristoteles ve Sokrates gibi büyük düşünürlerini Rönesans mimarisi içinde bir araya getirir.",
                 "category_name": "Fresk & Tavan Resmi"
             },
@@ -130,7 +130,7 @@ def seed_database():
                 "title": "Aziz Matta'ya Çağrı",
                 "artist": "Caravaggio",
                 "year": 1600,
-                "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/The_Calling_of_Saint_Matthew-Caravaggio_%281599-1600%29.jpg/640px-The_Calling_of_Saint_Matthew-Caravaggio_%281599-1600%29.jpg",
+                "image_url": "https://images.unsplash.com/photo-1578328819058-b69f3a3b0f6b?auto=format&fit=crop&w=1200&q=80",
                 "description": "Barok döneminin devrimci eseri. Dramatik chiaroscuro tekniğiyle pencereden giren ışık hüzmesinin vergi memuru Levi'yi aydınlattığı ilahi çağrı anı.",
                 "category_name": "Barok"
             },
@@ -138,7 +138,7 @@ def seed_database():
                 "title": "Kıyamet Günü (The Last Judgment)",
                 "artist": "Michelangelo Buonarroti",
                 "year": 1541,
-                "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Last_Judgement_%28Michelangelo%29.jpg/640px-Last_Judgement_%28Michelangelo%29.jpg",
+                "image_url": "https://images.unsplash.com/photo-1579783901586-7880cb4cd974?auto=format&fit=crop&w=1200&q=80",
                 "description": "Sistine Şapeli'nin sunak duvarındaki anıtsal fresk. İsa'nın ikinci gelişinde ruhların yargılanmasını dinamik, güçlü ve sarsıcı figürlerle yansıtır.",
                 "category_name": "Fresk & Tavan Resmi"
             }
@@ -146,7 +146,14 @@ def seed_database():
 
         for art in artworks_data:
             existing = db.query(Artwork).filter(Artwork.title == art["title"]).first()
-            if not existing:
+            if existing:
+                existing.image_url = art["image_url"]
+                existing.artist = art["artist"]
+                existing.year = art["year"]
+                existing.description = art["description"]
+                existing.category_id = category_map[art["category_name"]]
+                print(f"Eser güncellendi: {art['title']}")
+            else:
                 cat_id = category_map[art["category_name"]]
                 artwork = Artwork(
                     title=art["title"],
