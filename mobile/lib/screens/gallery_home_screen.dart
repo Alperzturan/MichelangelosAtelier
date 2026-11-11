@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/artwork_model.dart';
@@ -13,20 +14,30 @@ class GalleryHomeScreen extends StatefulWidget {
 
 class _GalleryHomeScreenState extends State<GalleryHomeScreen> {
   final ApiService _apiService = ApiService();
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
 
   List<CategoryModel> _categories = [];
   List<ArtworkModel> _artworks = [];
   int? _selectedCategoryId;
+  String _searchQuery = '';
   bool _isLoading = true;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadInitialData();
   }
 
-  Future<void> _loadData() async {
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadInitialData() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -34,7 +45,10 @@ class _GalleryHomeScreenState extends State<GalleryHomeScreen> {
 
     try {
       final categoriesFuture = _apiService.fetchCategories();
-      final artworksFuture = _apiService.fetchArtworks();
+      final artworksFuture = _apiService.fetchArtworks(
+        categoryId: _selectedCategoryId,
+        query: _searchQuery,
+      );
 
       final results = await Future.wait([categoriesFuture, artworksFuture]);
 
@@ -53,9 +67,37 @@ class _GalleryHomeScreenState extends State<GalleryHomeScreen> {
     }
   }
 
-  List<ArtworkModel> get _filteredArtworks {
-    if (_selectedCategoryId == null) return _artworks;
-    return _artworks.where((art) => art.categoryId == _selectedCategoryId).toList();
+  Future<void> _filterArtworks() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final artworks = await _apiService.fetchArtworks(
+        categoryId: _selectedCategoryId,
+        query: _searchQuery,
+      );
+      if (!mounted) return;
+      setState(() {
+        _artworks = artworks;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Filtrelenen eserler yüklenemedi.';
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      setState(() => _searchQuery = value);
+      _filterArtworks();
+    });
   }
 
   @override
@@ -67,109 +109,125 @@ class _GalleryHomeScreenState extends State<GalleryHomeScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Yenile',
-            onPressed: _loadData,
+            onPressed: _loadInitialData,
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF5D4037)))
-          : _errorMessage != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.cloud_off, size: 64, color: Colors.grey[600]),
-                        const SizedBox(height: 16),
-                        Text(
-                          _errorMessage!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                        const SizedBox(height: 20),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF5D4037),
-                            foregroundColor: Colors.white,
-                          ),
-                          onPressed: _loadData,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Tekrar Dene'),
-                        ),
-                      ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 4. Hafta: Dinamik Arama Çubuğu (?q= parametresi ile)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: TextField(
+              controller: _searchController,
+              onChanged: _onSearchChanged,
+              decoration: InputDecoration(
+                hintText: 'Eser başlığı veya sanatçı ara...',
+                prefixIcon: const Icon(Icons.search, color: Color(0xFF5D4037)),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                          _filterArtworks();
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFD7CCC8)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF5D4037), width: 1.5),
+                ),
+              ),
+            ),
+          ),
+          // 4. Hafta: Sanat Akımı Seçim Çipleri (?category_id= parametresi ile)
+          SizedBox(
+            height: 52,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              scrollDirection: Axis.horizontal,
+              itemCount: _categories.length + 1,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  final isSelected = _selectedCategoryId == null;
+                  return ChoiceChip(
+                    label: const Text('Tüm Eserler'),
+                    selected: isSelected,
+                    selectedColor: const Color(0xFF5D4037),
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : Colors.black87,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                     ),
+                    onSelected: (_) {
+                      setState(() => _selectedCategoryId = null);
+                      _filterArtworks();
+                    },
+                  );
+                }
+
+                final category = _categories[index - 1];
+                final isSelected = _selectedCategoryId == category.id;
+                return ChoiceChip(
+                  label: Text(category.name),
+                  selected: isSelected,
+                  selectedColor: const Color(0xFF5D4037),
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : Colors.black87,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
-                )
-              : RefreshIndicator(
-                  color: const Color(0xFF5D4037),
-                  onRefresh: _loadData,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Kategori Filtreleme Çubuğu
-                      SizedBox(
-                        height: 56,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          scrollDirection: Axis.horizontal,
-                          itemCount: _categories.length + 1,
-                          separatorBuilder: (_, __) => const SizedBox(width: 8),
-                          itemBuilder: (context, index) {
-                            if (index == 0) {
-                              final isSelected = _selectedCategoryId == null;
-                              return ChoiceChip(
-                                label: const Text('Tüm Eserler'),
-                                selected: isSelected,
-                                selectedColor: const Color(0xFF5D4037),
-                                labelStyle: TextStyle(
-                                  color: isSelected ? Colors.white : Colors.black87,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                ),
-                                onSelected: (_) {
-                                  setState(() => _selectedCategoryId = null);
-                                },
-                              );
-                            }
-
-                            final category = _categories[index - 1];
-                            final isSelected = _selectedCategoryId == category.id;
-                            return ChoiceChip(
-                              label: Text(category.name),
-                              selected: isSelected,
-                              selectedColor: const Color(0xFF5D4037),
-                              labelStyle: TextStyle(
-                                color: isSelected ? Colors.white : Colors.black87,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  onSelected: (_) {
+                    setState(() {
+                      _selectedCategoryId = isSelected ? null : category.id;
+                    });
+                    _filterArtworks();
+                  },
+                );
+              },
+            ),
+          ),
+          // 4. Hafta: 2 Sütunlu Grid Eser Listeleme
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF5D4037)))
+                : _errorMessage != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                              const SizedBox(height: 16),
+                              Text(
+                                _errorMessage!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 16),
                               ),
-                              onSelected: (_) {
-                                setState(() {
-                                  _selectedCategoryId = isSelected ? null : category.id;
-                                });
-                              },
-                            );
-                          },
-                        ),
-                      ),
-
-                      // Eser Sayısı Bilgisi
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                        child: Text(
-                          '${_filteredArtworks.length} Eser Listeleniyor',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[700],
-                            fontStyle: FontStyle.italic,
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: _loadInitialData,
+                                child: const Text('Tekrar Dene'),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-
-                      // Eserler Grid Listesi
-                      Expanded(
-                        child: _filteredArtworks.isEmpty
+                      )
+                    : RefreshIndicator(
+                        color: const Color(0xFF5D4037),
+                        onRefresh: _loadInitialData,
+                        child: _artworks.isEmpty
                             ? const Center(
-                                child: Text('Bu kategoride henüz eser bulunmuyor.'),
+                                child: Text('Arama veya kategori kriterine uygun eser bulunamadı.'),
                               )
                             : GridView.builder(
                                 padding: const EdgeInsets.all(16),
@@ -179,16 +237,16 @@ class _GalleryHomeScreenState extends State<GalleryHomeScreen> {
                                   crossAxisSpacing: 14,
                                   mainAxisSpacing: 14,
                                 ),
-                                itemCount: _filteredArtworks.length,
+                                itemCount: _artworks.length,
                                 itemBuilder: (context, index) {
-                                  final artwork = _filteredArtworks[index];
+                                  final artwork = _artworks[index];
                                   return _ArtworkCard(artwork: artwork);
                                 },
                               ),
                       ),
-                    ],
-                  ),
-                ),
+          ),
+        ],
+      ),
     );
   }
 }
