@@ -78,9 +78,22 @@ class ApiService {
     }
   }
 
-  // Mevcut 2. Hafta Metotları
-  Future<List<ArtworkModel>> fetchArtworks() async {
-    final response = await http.get(Uri.parse('$baseUrl/api/v1/artworks/'));
+  // Mevcut 2. & 3. Hafta Metotları: Sanat eserlerini filtreleme ve arama desteği ile getirme
+  Future<List<ArtworkModel>> fetchArtworks({int? categoryId, String? query}) async {
+    final queryParameters = <String, String>{};
+    if (categoryId != null) {
+      queryParameters['category_id'] = categoryId.toString();
+    }
+    if (query != null && query.trim().isNotEmpty) {
+      queryParameters['q'] = query.trim();
+    }
+
+    final baseUri = Uri.parse('$baseUrl/api/v1/artworks/');
+    final uri = queryParameters.isNotEmpty
+        ? baseUri.replace(queryParameters: queryParameters)
+        : baseUri;
+
+    final response = await http.get(uri);
 
     if (response.statusCode == 200) {
       Iterable data = json.decode(utf8.decode(response.bodyBytes));
