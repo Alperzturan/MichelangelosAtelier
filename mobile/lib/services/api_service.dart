@@ -38,8 +38,9 @@ class ApiService {
     required String email,
     required String password,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/v1/auth/login'),
+    var uri = Uri.parse('$baseUrl/api/v1/auth/login');
+    var response = await http.post(
+      uri,
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: {
         'username': email,
@@ -47,51 +48,53 @@ class ApiService {
       },
     );
 
+    if (response.statusCode == 404) {
+      uri = Uri.parse('$baseUrl/auth/login');
+      response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: {
+          'username': email,
+          'password': password,
+        },
+      );
+    }
+
     if (response.statusCode == 200) {
       final data = json.decode(utf8.decode(response.bodyBytes));
-      final token = data['access_token'] as String;
-      await saveToken(token);
-      return token;
+      final token = data['access_token'];
+      if (token != null) {
+        await saveToken(token);
+        return token;
+      } else {
+        throw Exception('Token alınamadı.');
+      }
     } else {
-      throw Exception('Giriş başarısız. E-posta veya şifre hatalı.');
+      throw Exception('Giriş başarısız: ${response.statusCode}');
     }
   }
 
-  // 3. Hafta: Kullanıcı Kaydı (/auth/register)
-  Future<void> register({
-    required String fullName,
-    required String email,
-    required String password,
+  // 4. Hafta: Kategori (category_id) ve Arama (q) destekli eser listeleme (/api/v1/artworks/?category_id=&q=)
+  Future<List<ArtworkModel>> fetchArtworks({
+    int? categoryId,
+    String? query,
+    String? search,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/v1/auth/register'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'full_name': fullName,
-        'email': email,
-        'password': password,
-      }),
-    );
+    final effectiveQuery = (query != null && query.trim().isNotEmpty)
+        ? query.trim()
+        : (search != null && search.trim().isNotEmpty ? search.trim() : null);
 
-    if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception('Kayıt işlemi başarısız oldu.');
-    }
-  }
-
-  // Mevcut 2. & 3. Hafta Metotları: Sanat eserlerini filtreleme ve arama desteği ile getirme
-  Future<List<ArtworkModel>> fetchArtworks({int? categoryId, String? query}) async {
-    final queryParameters = <String, String>{};
+    final Map<String, String> queryParams = {};
     if (categoryId != null) {
-      queryParameters['category_id'] = categoryId.toString();
+      queryParams['category_id'] = categoryId.toString();
     }
-    if (query != null && query.trim().isNotEmpty) {
-      queryParameters['q'] = query.trim();
+    if (effectiveQuery != null) {
+      queryParams['q'] = effectiveQuery;
     }
 
-    final baseUri = Uri.parse('$baseUrl/api/v1/artworks/');
-    final uri = queryParameters.isNotEmpty
-        ? baseUri.replace(queryParameters: queryParameters)
-        : baseUri;
+    final uri = Uri.parse('$baseUrl/api/v1/artworks/').replace(
+      queryParameters: queryParams.isNotEmpty ? queryParams : null,
+    );
 
     final response = await http.get(uri);
 

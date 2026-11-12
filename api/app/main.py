@@ -37,6 +37,7 @@ app.include_router(router=artworks_router, prefix=settings.API_V1_STR)
 app.include_router(router=favorites_router, prefix=settings.API_V1_STR)
 app.include_router(router=reviews_router, prefix=settings.API_V1_STR)
 app.include_router(router=auth_router, prefix=settings.API_V1_STR)
+app.include_router(router=auth_router)
 
 @app.get("/", summary="Root Endpoint", tags=["Root"])
 async def root():

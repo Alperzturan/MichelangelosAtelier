@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
+import 'providers/gallery_provider.dart';
 import 'screens/admin_dashboard_screen.dart';
 import 'screens/artwork_detail_screen.dart';
 import 'screens/favorites_screen.dart';
@@ -17,8 +18,11 @@ class MichelangelosAtelierApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthProvider()..tryAutoLogin(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()..tryAutoLogin()),
+        ChangeNotifierProvider(create: (_) => GalleryProvider()..loadInitialData()),
+      ],
       child: MaterialApp(
         title: "Michelangelo's Atelier",
         debugShowCheckedModeBanner: false,

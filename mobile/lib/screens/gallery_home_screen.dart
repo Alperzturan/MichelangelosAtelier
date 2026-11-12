@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/artwork_model.dart';
-import '../models/category_model.dart';
-import '../services/api_service.dart';
+import '../providers/gallery_provider.dart';
 
 class GalleryHomeScreen extends StatefulWidget {
   const GalleryHomeScreen({super.key});
@@ -13,21 +13,18 @@ class GalleryHomeScreen extends StatefulWidget {
 }
 
 class _GalleryHomeScreenState extends State<GalleryHomeScreen> {
-  final ApiService _apiService = ApiService();
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
-
-  List<CategoryModel> _categories = [];
-  List<ArtworkModel> _artworks = [];
-  int? _selectedCategoryId;
-  String _searchQuery = '';
-  bool _isLoading = true;
-  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _loadInitialData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final gallery = Provider.of<GalleryProvider>(context, listen: false);
+      if (gallery.artworks.isEmpty && !gallery.isLoading) {
+        gallery.loadInitialData();
+      }
+    });
   }
 
   @override
@@ -37,71 +34,18 @@ class _GalleryHomeScreenState extends State<GalleryHomeScreen> {
     super.dispose();
   }
 
-  Future<void> _loadInitialData() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final categoriesFuture = _apiService.fetchCategories();
-      final artworksFuture = _apiService.fetchArtworks(
-        categoryId: _selectedCategoryId,
-        query: _searchQuery,
-      );
-
-      final results = await Future.wait([categoriesFuture, artworksFuture]);
-
-      if (!mounted) return;
-      setState(() {
-        _categories = results[0] as List<CategoryModel>;
-        _artworks = results[1] as List<ArtworkModel>;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = 'Galeri verileri yüklenemedi. Sunucu bağlantınızı kontrol edin.';
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _filterArtworks() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final artworks = await _apiService.fetchArtworks(
-        categoryId: _selectedCategoryId,
-        query: _searchQuery,
-      );
-      if (!mounted) return;
-      setState(() {
-        _artworks = artworks;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = 'Filtrelenen eserler yüklenemedi.';
-        _isLoading = false;
-      });
-    }
-  }
-
-  void _onSearchChanged(String value) {
+  // 4. Hafta: Arama Çubuğu Debounce (~400ms) Tetikleyicisi
+  void _onSearchChanged(String value, GalleryProvider galleryProvider) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 350), () {
-      setState(() => _searchQuery = value);
-      _filterArtworks();
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      galleryProvider.setSearchQuery(value);
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final gallery = Provider.of<GalleryProvider>(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Michelangelo's Atelier"),
@@ -109,19 +53,19 @@ class _GalleryHomeScreenState extends State<GalleryHomeScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Yenile',
-            onPressed: _loadInitialData,
+            onPressed: gallery.isLoading ? null : () => gallery.refresh(),
           ),
         ],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 4. Hafta: Dinamik Arama Çubuğu (?q= parametresi ile)
+          // 4. Hafta: Arama Çubuğu (Search Bar) & Debounce (~400ms)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: TextField(
               controller: _searchController,
-              onChanged: _onSearchChanged,
+              onChanged: (value) => _onSearchChanged(value, gallery),
               decoration: InputDecoration(
                 hintText: 'Eser başlığı veya sanatçı ara...',
                 prefixIcon: const Icon(Icons.search, color: Color(0xFF5D4037)),
@@ -130,8 +74,8 @@ class _GalleryHomeScreenState extends State<GalleryHomeScreen> {
                         icon: const Icon(Icons.clear),
                         onPressed: () {
                           _searchController.clear();
-                          setState(() => _searchQuery = '');
-                          _filterArtworks();
+                          _debounce?.cancel();
+                          gallery.clearSearch();
                         },
                       )
                     : null,
@@ -149,34 +93,32 @@ class _GalleryHomeScreenState extends State<GalleryHomeScreen> {
               ),
             ),
           ),
-          // 4. Hafta: Sanat Akımı Seçim Çipleri (?category_id= parametresi ile)
+
+          // 4. Hafta: Akım Seçim Çipleri (Category Chips - Yatayda Kaydırılabilir ChoiceChip)
           SizedBox(
             height: 52,
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               scrollDirection: Axis.horizontal,
-              itemCount: _categories.length + 1,
+              itemCount: gallery.categories.length + 1,
               separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
                 if (index == 0) {
-                  final isSelected = _selectedCategoryId == null;
+                  final isSelected = gallery.selectedCategoryId == null;
                   return ChoiceChip(
-                    label: const Text('Tüm Eserler'),
+                    label: const Text('Tümü'),
                     selected: isSelected,
                     selectedColor: const Color(0xFF5D4037),
                     labelStyle: TextStyle(
                       color: isSelected ? Colors.white : Colors.black87,
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                     ),
-                    onSelected: (_) {
-                      setState(() => _selectedCategoryId = null);
-                      _filterArtworks();
-                    },
+                    onSelected: (_) => gallery.setCategory(null),
                   );
                 }
 
-                final category = _categories[index - 1];
-                final isSelected = _selectedCategoryId == category.id;
+                final category = gallery.categories[index - 1];
+                final isSelected = gallery.selectedCategoryId == category.id;
                 return ChoiceChip(
                   label: Text(category.name),
                   selected: isSelected,
@@ -185,21 +127,30 @@ class _GalleryHomeScreenState extends State<GalleryHomeScreen> {
                     color: isSelected ? Colors.white : Colors.black87,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
-                  onSelected: (_) {
-                    setState(() {
-                      _selectedCategoryId = isSelected ? null : category.id;
-                    });
-                    _filterArtworks();
-                  },
+                  onSelected: (_) => gallery.setCategory(category.id),
                 );
               },
             ),
           ),
-          // 4. Hafta: 2 Sütunlu Grid Eser Listeleme
+
+          // Eser Sayısı Bilgisi
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Text(
+              '${gallery.artworkCount} Eser Listeleniyor',
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey[700],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+
+          // 4. Hafta: 2 Sütunlu Grid Eser Listeleme (GalleryProvider State ile)
           Expanded(
-            child: _isLoading
+            child: gallery.isLoading
                 ? const Center(child: CircularProgressIndicator(color: Color(0xFF5D4037)))
-                : _errorMessage != null
+                : gallery.errorMessage != null
                     ? Center(
                         child: Padding(
                           padding: const EdgeInsets.all(24.0),
@@ -209,13 +160,17 @@ class _GalleryHomeScreenState extends State<GalleryHomeScreen> {
                               const Icon(Icons.error_outline, size: 48, color: Colors.red),
                               const SizedBox(height: 16),
                               Text(
-                                _errorMessage!,
+                                gallery.errorMessage!,
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(fontSize: 16),
                               ),
                               const SizedBox(height: 16),
                               ElevatedButton(
-                                onPressed: _loadInitialData,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF5D4037),
+                                  foregroundColor: Colors.white,
+                                ),
+                                onPressed: () => gallery.refresh(),
                                 child: const Text('Tekrar Dene'),
                               ),
                             ],
@@ -224,10 +179,18 @@ class _GalleryHomeScreenState extends State<GalleryHomeScreen> {
                       )
                     : RefreshIndicator(
                         color: const Color(0xFF5D4037),
-                        onRefresh: _loadInitialData,
-                        child: _artworks.isEmpty
-                            ? const Center(
-                                child: Text('Arama veya kategori kriterine uygun eser bulunamadı.'),
+                        onRefresh: () => gallery.refresh(),
+                        child: gallery.artworks.isEmpty
+                            ? ListView(
+                                children: const [
+                                  SizedBox(height: 80),
+                                  Center(
+                                    child: Text(
+                                      'Arama veya kategori kriterine uygun eser bulunamadı.',
+                                      style: TextStyle(fontSize: 15, color: Colors.grey),
+                                    ),
+                                  ),
+                                ],
                               )
                             : GridView.builder(
                                 padding: const EdgeInsets.all(16),
@@ -237,9 +200,9 @@ class _GalleryHomeScreenState extends State<GalleryHomeScreen> {
                                   crossAxisSpacing: 14,
                                   mainAxisSpacing: 14,
                                 ),
-                                itemCount: _artworks.length,
+                                itemCount: gallery.artworks.length,
                                 itemBuilder: (context, index) {
-                                  final artwork = _artworks[index];
+                                  final artwork = gallery.artworks[index];
                                   return _ArtworkCard(artwork: artwork);
                                 },
                               ),
