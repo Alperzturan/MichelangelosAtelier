@@ -6,6 +6,8 @@ class ArtworkModel {
   final String imageUrl;
   final String description;
   final int categoryId;
+  final String? artistBio;
+  final String? artistPeriod;
 
   ArtworkModel({
     required this.id,
@@ -15,6 +17,8 @@ class ArtworkModel {
     required this.imageUrl,
     required this.description,
     required this.categoryId,
+    this.artistBio,
+    this.artistPeriod,
   });
 
   factory ArtworkModel.fromJson(Map<String, dynamic> json) {
@@ -24,8 +28,10 @@ class ArtworkModel {
       artist: json['artist'],
       year: json['year'],
       imageUrl: json['image_url'],
-      description: json['description'],
+      description: json['description'] ?? '',
       categoryId: json['category_id'],
+      artistBio: json['artist_bio']?.toString(),
+      artistPeriod: json['artist_period']?.toString(),
     );
   }
 
@@ -37,6 +43,8 @@ class ArtworkModel {
       'image_url': imageUrl,
       'description': description,
       'category_id': categoryId,
+      if (artistBio != null) 'artist_bio': artistBio,
+      if (artistPeriod != null) 'artist_period': artistPeriod,
     };
   }
 }
