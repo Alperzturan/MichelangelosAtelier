@@ -265,28 +265,274 @@ class ArtworkDetailScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const Divider(height: 32),
-                  const Text(
-                    'Eser Hakkında',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF3E2723),
-                    ),
+                  const SizedBox(height: 24),
+
+                  // 5. Hafta - Görev 2: Zenginleştirilmiş Eser Hakkında Kartı
+                  _ArtworkDescriptionCard(description: artwork.description),
+                  const SizedBox(height: 16),
+
+                  // 5. Hafta - Görev 2: Sanatçı Biyografisi Kartı
+                  _ArtistBiographyCard(
+                    artistName: artwork.artist,
+                    artworkYear: artwork.year,
+                    categoryName: categoryName,
+                    customBio: artwork.artistBio,
+                    customPeriod: artwork.artistPeriod,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    artwork.description.isNotEmpty
-                        ? artwork.description
-                        : 'Bu eser hakkında henüz detaylı açıklama eklenmemiştir.',
-                    style: TextStyle(
-                      fontSize: 15,
-                      height: 1.6,
-                      color: Colors.grey[800],
-                    ),
-                  ),
+                  const SizedBox(height: 24),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ArtworkDescriptionCard extends StatelessWidget {
+  final String description;
+
+  const _ArtworkDescriptionCard({required this.description});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5DDD8)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF3E2723).withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.menu_book_rounded, size: 20, color: Color(0xFF5D4037)),
+              SizedBox(width: 8),
+              Text(
+                'Eser Hakkında',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF3E2723),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            description.isNotEmpty
+                ? description
+                : 'Bu eser hakkında henüz detaylı açıklama eklenmemiştir.',
+            style: TextStyle(
+              fontSize: 15,
+              height: 1.65,
+              color: Colors.grey[800],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ArtistProfile {
+  final String period;
+  final String biography;
+
+  const _ArtistProfile({
+    required this.period,
+    required this.biography,
+  });
+}
+
+class _ArtistBiographyCard extends StatelessWidget {
+  final String artistName;
+  final int artworkYear;
+  final String? categoryName;
+  final String? customBio;
+  final String? customPeriod;
+
+  const _ArtistBiographyCard({
+    required this.artistName,
+    required this.artworkYear,
+    this.categoryName,
+    this.customBio,
+    this.customPeriod,
+  });
+
+  static const Map<String, _ArtistProfile> _curatedBiographies = {
+    'michelangelo': _ArtistProfile(
+      period: '1475 – 1564 • Yüksek Rönesans',
+      biography:
+          'İtalyan Yüksek Rönesansının en büyük heykeltıraş, ressam ve mimarlarından biridir. '
+          'Floransa ve Roma\'da ürettiği Davud, Pietà ve Sistine Şapeli freskleriyle insan anatomisine '
+          'duygusal güç ve anıtsal bir dinamizm kazandırmıştır.',
+    ),
+    'leonardo da vinci': _ArtistProfile(
+      period: '1452 – 1519 • Yüksek Rönesans',
+      biography:
+          'Rönesansın "Evrensel İnsanı" olarak anılan Leonardo da Vinci; ressam, mucit, anatomist ve mühendistir. '
+          'Sfumato ışık-gölge geçişleri ve bilimsel gözlem gücüyle Mona Lisa ve Son Akşam Yemeği gibi '
+          'sanat tarihinin yönünü değiştiren başyapıtlara imza atmıştır.',
+    ),
+    'raffaello': _ArtistProfile(
+      period: '1483 – 1520 • Yüksek Rönesans',
+      biography:
+          'Uyum, zarafet ve kusursuz perspektif anlayışıyla tanınan İtalyan Yüksek Rönesans ustasıdır. '
+          'Vatikan odalarındaki Atina Okulu başta olmak üzere anıtsal freskleri, klasik felsefe ile '
+          'Rönesans idealizmini benzersiz bir dengede buluşturur.',
+    ),
+    'caravaggio': _ArtistProfile(
+      period: '1571 – 1610 • Barok',
+      biography:
+          'Barok resmin öncüsü kabul edilen Michelangelo Merisi da Caravaggio, dramatik ışık-gölge '
+          'kontrastı (chiaroscuro / tenebrizm) ve çarpıcı gerçekçiliğiyle Avrupa resim sanatında '
+          'devrim yaratmıştır.',
+    ),
+    'botticelli': _ArtistProfile(
+      period: '1445 – 1510 • Erken Rönesans',
+      biography:
+          'Floransa Rönesansının zarif çizgileri ve mitolojik anlatılarıyla öne çıkan ustasıdır. '
+          'Venüs\'ün Doğuşu ve İlkbahar gibi eserleriyle lirik bir estetik dil geliştirmiştir.',
+    ),
+    'bernini': _ArtistProfile(
+      period: '1598 – 1680 • Barok',
+      biography:
+          'Barok heykel ve mimarinin en etkili ismi olan Gian Lorenzo Bernini, mermere hareket ve '
+          'tiyatral duygu kazandıran eserleriyle Roma\'nın sanatsal çehresini şekillendirmiştir.',
+    ),
+    'rembrandt': _ArtistProfile(
+      period: '1606 – 1669 • Hollanda Altın Çağı / Barok',
+      biography:
+          'Işık ve psikolojik derinlik ustası Hollandalı ressam Rembrandt van Rijn, portreleri ve '
+          'tarihsel kompozisyonlarında insan ruhunun en ince ifadelerini tuvale aktarmıştır.',
+    ),
+  };
+
+  _ArtistProfile _resolveProfile() {
+    final normalized = artistName.toLowerCase().trim();
+    final hasCustomPeriod = customPeriod != null && customPeriod!.trim().isNotEmpty;
+    final hasCustomBio = customBio != null && customBio!.trim().isNotEmpty;
+
+    for (final entry in _curatedBiographies.entries) {
+      if (normalized.contains(entry.key)) {
+        return _ArtistProfile(
+          period: hasCustomPeriod ? customPeriod!.trim() : entry.value.period,
+          biography: hasCustomBio ? customBio!.trim() : entry.value.biography,
+        );
+      }
+    }
+
+    final fallbackPeriod = hasCustomPeriod
+        ? customPeriod!.trim()
+        : (categoryName != null
+            ? '$categoryName • $artworkYear dönemi'
+            : '$artworkYear dönemi sanatçısı');
+
+    final fallbackBio = hasCustomBio
+        ? customBio!.trim()
+        : '$artistName, $artworkYear yılı dolaylarında ürettiği çalışmalarla koleksiyonumuzda yer alan '
+            've döneminin üslubunu yansıtan seçkin sanatçılardan biridir.';
+
+    return _ArtistProfile(period: fallbackPeriod, biography: fallbackBio);
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return 'S';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = _resolveProfile();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5EFEA),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFD7CCC8)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.person_pin_rounded, size: 20, color: Color(0xFF5D4037)),
+              SizedBox(width: 8),
+              Text(
+                'Sanatçı Biyografisi',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF3E2723),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: const Color(0xFF5D4037),
+                child: Text(
+                  _initials(artistName),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      artistName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF3E2723),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      profile.period,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF8D6E63),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            profile.biography,
+            style: TextStyle(
+              fontSize: 14,
+              height: 1.65,
+              color: Colors.grey[850],
             ),
           ),
         ],
