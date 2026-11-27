@@ -3,12 +3,87 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/artwork_model.dart';
 import '../models/category_model.dart';
+import '../models/review_model.dart';
+import '../providers/auth_provider.dart';
 import '../providers/gallery_provider.dart';
 
-class ArtworkDetailScreen extends StatelessWidget {
+class ArtworkDetailScreen extends StatefulWidget {
   final ArtworkModel? initialArtwork;
 
   const ArtworkDetailScreen({super.key, this.initialArtwork});
+
+  @override
+  State<ArtworkDetailScreen> createState() => _ArtworkDetailScreenState();
+}
+
+class _ArtworkDetailScreenState extends State<ArtworkDetailScreen> {
+  final GlobalKey<FormState> _reviewFormKey = GlobalKey<FormState>();
+  final TextEditingController _commentController = TextEditingController();
+
+  int _selectedRating = 0;
+  String? _ratingError;
+
+  // 5. Hafta - Görev 3: Arayüz doğrulaması için yerel inceleme listesi
+  // (API / ReviewProvider bağlantısı sonraki entegrasyon adımında eklenecek)
+  final List<ReviewModel> _reviews = [];
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  double get _averageRating {
+    if (_reviews.isEmpty) return 0.0;
+    final total = _reviews.fold<int>(0, (sum, item) => sum + item.rating);
+    return total / _reviews.length;
+  }
+
+  AuthProvider? _safeReadAuth(BuildContext context) {
+    try {
+      return Provider.of<AuthProvider>(context);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _handleSubmitReview(ArtworkModel artwork, AuthProvider? authProvider) {
+    final isFormValid = _reviewFormKey.currentState?.validate() ?? false;
+    if (_selectedRating == 0) {
+      setState(() {
+        _ratingError = 'Lütfen 1 ile 5 arasında bir yıldız puanı seçin.';
+      });
+      return;
+    }
+
+    if (!isFormValid) return;
+
+    final user = authProvider?.currentUser;
+    final newReview = ReviewModel(
+      id: DateTime.now().millisecondsSinceEpoch,
+      userId: user?.id ?? 0,
+      artworkId: artwork.id,
+      rating: _selectedRating,
+      comment: _commentController.text.trim(),
+      createdAt: DateTime.now(),
+      userName: user?.fullName ?? 'Sanatsever',
+    );
+
+    setState(() {
+      _reviews.insert(0, newReview);
+      _selectedRating = 0;
+      _ratingError = null;
+      _commentController.clear();
+    });
+
+    FocusScope.of(context).unfocus();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Değerlendirmeniz eklendi.'),
+        backgroundColor: Color(0xFF5D4037),
+      ),
+    );
+  }
 
   String? _resolveCategoryName(BuildContext context, int categoryId) {
     try {
@@ -64,7 +139,7 @@ class ArtworkDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final routeArtwork = ModalRoute.of(context)?.settings.arguments as ArtworkModel?;
-    final artwork = initialArtwork ?? routeArtwork;
+    final artwork = widget.initialArtwork ?? routeArtwork;
 
     if (artwork == null) {
       return Scaffold(
@@ -76,6 +151,8 @@ class ArtworkDetailScreen extends StatelessWidget {
     }
 
     final categoryName = _resolveCategoryName(context, artwork.categoryId);
+    final authProvider = _safeReadAuth(context);
+    final isLoggedIn = authProvider?.isLoggedIn ?? false;
 
     return Scaffold(
       body: CustomScrollView(
@@ -280,6 +357,30 @@ class ArtworkDetailScreen extends StatelessWidget {
                     customPeriod: artwork.artistPeriod,
                   ),
                   const SizedBox(height: 24),
+
+                  // 5. Hafta - Görev 3: Değerlendirme Özeti, 1-5 Yıldız Formu ve İnceleme Listesi
+                  _ReviewSummaryHeader(
+                    averageRating: _averageRating,
+                    reviewCount: _reviews.length,
+                  ),
+                  const SizedBox(height: 14),
+                  _ReviewFormCard(
+                    isLoggedIn: isLoggedIn,
+                    formKey: _reviewFormKey,
+                    commentController: _commentController,
+                    selectedRating: _selectedRating,
+                    ratingError: _ratingError,
+                    onRatingChanged: (rating) {
+                      setState(() {
+                        _selectedRating = rating;
+                        _ratingError = null;
+                      });
+                    },
+                    onSubmit: () => _handleSubmitReview(artwork, authProvider),
+                  ),
+                  const SizedBox(height: 18),
+                  _ReviewListSection(reviews: _reviews),
+                  const SizedBox(height: 28),
                 ],
               ),
             ),
@@ -535,6 +636,396 @@ class _ArtistBiographyCard extends StatelessWidget {
               color: Colors.grey[850],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReviewSummaryHeader extends StatelessWidget {
+  final double averageRating;
+  final int reviewCount;
+
+  const _ReviewSummaryHeader({
+    required this.averageRating,
+    required this.reviewCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(Icons.rate_review_rounded, size: 22, color: Color(0xFF5D4037)),
+        const SizedBox(width: 8),
+        const Expanded(
+          child: Text(
+            'Değerlendirmeler & Eleştiriler',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF3E2723),
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF8E1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFFFE082)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.star_rounded, size: 17, color: Color(0xFFD97706)),
+              const SizedBox(width: 4),
+              Text(
+                reviewCount > 0
+                    ? '${averageRating.toStringAsFixed(1)} ($reviewCount)'
+                    : 'Henüz puan yok',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF3E2723),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReviewFormCard extends StatelessWidget {
+  final bool isLoggedIn;
+  final GlobalKey<FormState> formKey;
+  final TextEditingController commentController;
+  final int selectedRating;
+  final String? ratingError;
+  final ValueChanged<int> onRatingChanged;
+  final VoidCallback onSubmit;
+
+  const _ReviewFormCard({
+    required this.isLoggedIn,
+    required this.formKey,
+    required this.commentController,
+    required this.selectedRating,
+    required this.ratingError,
+    required this.onRatingChanged,
+    required this.onSubmit,
+  });
+
+  static const List<String> _ratingLabels = [
+    '',
+    '1 / 5 • Zayıf',
+    '2 / 5 • Geliştirilebilir',
+    '3 / 5 • İyi',
+    '4 / 5 • Çok İyi',
+    '5 / 5 • Başyapıt',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isLoggedIn) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF5EFEA),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFD7CCC8)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.lock_outline_rounded, color: Color(0xFF5D4037)),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Eserlere 1–5 yıldız puan vermek ve eleştiri yazmak için lütfen Giriş sekmesinden oturum açın.',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  height: 1.45,
+                  color: Color(0xFF4E342E),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5DDD8)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF3E2723).withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Form(
+        key: formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Bu Eseri Puanla',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF3E2723),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                ...List.generate(5, (index) {
+                  final starValue = index + 1;
+                  final isFilled = starValue <= selectedRating;
+                  return IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+                    tooltip: '$starValue Yıldız',
+                    onPressed: () => onRatingChanged(starValue),
+                    icon: Icon(
+                      isFilled ? Icons.star_rounded : Icons.star_outline_rounded,
+                      size: 32,
+                      color: isFilled ? const Color(0xFFD97706) : const Color(0xFFBDBDBD),
+                    ),
+                  );
+                }),
+                const SizedBox(width: 8),
+                if (selectedRating > 0)
+                  Flexible(
+                    child: Text(
+                      _ratingLabels[selectedRating],
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF5D4037),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            if (ratingError != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                ratingError!,
+                style: TextStyle(fontSize: 12, color: Colors.red[700]),
+              ),
+            ],
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: commentController,
+              maxLines: 3,
+              maxLength: 500,
+              decoration: InputDecoration(
+                hintText: 'Eser hakkında eleştirinizi ve izlenimlerinizi yazın...',
+                filled: true,
+                fillColor: const Color(0xFFFBF8F5),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFD7CCC8)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF5D4037), width: 1.5),
+                ),
+              ),
+              validator: (value) {
+                final text = value?.trim() ?? '';
+                if (text.isEmpty) {
+                  return 'Lütfen bir eleştiri yorumu yazın.';
+                }
+                if (text.length < 5) {
+                  return 'Yorumunuz en az 5 karakter olmalıdır.';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF5D4037),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.send_rounded, size: 18),
+                label: const Text(
+                  'Değerlendirmeyi Gönder',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                onPressed: onSubmit,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReviewListSection extends StatelessWidget {
+  final List<ReviewModel> reviews;
+
+  const _ReviewListSection({required this.reviews});
+
+  @override
+  Widget build(BuildContext context) {
+    if (reviews.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE5DDD8)),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.forum_outlined, size: 38, color: Colors.grey[400]),
+            const SizedBox(height: 10),
+            const Text(
+              'Henüz değerlendirme yapılmamış.',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF5D4037),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Bu eser hakkında ilk puanı ve eleştiriyi siz bırakabilirsiniz.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (int i = 0; i < reviews.length; i++) ...[
+          _ReviewCard(review: reviews[i]),
+          if (i < reviews.length - 1) const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+}
+
+class _ReviewCard extends StatelessWidget {
+  final ReviewModel review;
+
+  const _ReviewCard({required this.review});
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return '';
+    final d = date.day.toString().padLeft(2, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final y = date.year.toString();
+    return '$d.$m.$y';
+  }
+
+  String _initials(String displayName) {
+    final parts = displayName.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return 'S';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final displayName = (review.userName != null && review.userName!.trim().isNotEmpty)
+        ? review.userName!.trim()
+        : 'Sanatsever #${review.userId}';
+    final dateText = _formatDate(review.createdAt);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE5DDD8)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: const Color(0xFF8D6E63),
+                child: Text(
+                  _initials(displayName),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF3E2723),
+                      ),
+                    ),
+                    if (dateText.isNotEmpty)
+                      Text(
+                        dateText,
+                        style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
+                      ),
+                  ],
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(5, (index) {
+                  return Icon(
+                    index < review.rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                    size: 16,
+                    color: index < review.rating
+                        ? const Color(0xFFD97706)
+                        : const Color(0xFFBDBDBD),
+                  );
+                }),
+              ),
+            ],
+          ),
+          if (review.comment.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              review.comment,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.55,
+                color: Colors.grey[850],
+              ),
+            ),
+          ],
         ],
       ),
     );
