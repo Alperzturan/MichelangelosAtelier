@@ -6,6 +6,7 @@ import '../models/category_model.dart';
 import '../models/review_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/gallery_provider.dart';
+import '../providers/review_provider.dart';
 
 class ArtworkDetailScreen extends StatefulWidget {
   final ArtworkModel? initialArtwork;
@@ -23,20 +24,30 @@ class _ArtworkDetailScreenState extends State<ArtworkDetailScreen> {
   int _selectedRating = 0;
   String? _ratingError;
 
-  // 5. Hafta - Görev 3: Arayüz doğrulaması için yerel inceleme listesi
-  // (API / ReviewProvider bağlantısı sonraki entegrasyon adımında eklenecek)
-  final List<ReviewModel> _reviews = [];
+  bool _initialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _initialized = true;
+      final routeArtwork = ModalRoute.of(context)?.settings.arguments as ArtworkModel?;
+      final artwork = widget.initialArtwork ?? routeArtwork;
+      if (artwork != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          try {
+            Provider.of<ReviewProvider>(context, listen: false)
+                .loadArtworkAndReviews(artwork.id, fallbackArtwork: artwork);
+          } catch (_) {}
+        });
+      }
+    }
+  }
 
   @override
   void dispose() {
     _commentController.dispose();
     super.dispose();
-  }
-
-  double get _averageRating {
-    if (_reviews.isEmpty) return 0.0;
-    final total = _reviews.fold<int>(0, (sum, item) => sum + item.rating);
-    return total / _reviews.length;
   }
 
   AuthProvider? _safeReadAuth(BuildContext context) {
@@ -47,7 +58,19 @@ class _ArtworkDetailScreenState extends State<ArtworkDetailScreen> {
     }
   }
 
-  void _handleSubmitReview(ArtworkModel artwork, AuthProvider? authProvider) {
+  ReviewProvider? _safeReadReview(BuildContext context) {
+    try {
+      return Provider.of<ReviewProvider>(context);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _handleSubmitReview(
+    ArtworkModel artwork,
+    AuthProvider? authProvider,
+    ReviewProvider? reviewProvider,
+  ) async {
     final isFormValid = _reviewFormKey.currentState?.validate() ?? false;
     if (_selectedRating == 0) {
       setState(() {
@@ -58,31 +81,38 @@ class _ArtworkDetailScreenState extends State<ArtworkDetailScreen> {
 
     if (!isFormValid) return;
 
-    final user = authProvider?.currentUser;
-    final newReview = ReviewModel(
-      id: DateTime.now().millisecondsSinceEpoch,
-      userId: user?.id ?? 0,
+    if (reviewProvider == null) return;
+
+    final success = await reviewProvider.submitReview(
       artworkId: artwork.id,
       rating: _selectedRating,
       comment: _commentController.text.trim(),
-      createdAt: DateTime.now(),
-      userName: user?.fullName ?? 'Sanatsever',
     );
 
-    setState(() {
-      _reviews.insert(0, newReview);
-      _selectedRating = 0;
-      _ratingError = null;
-      _commentController.clear();
-    });
+    if (!mounted) return;
 
-    FocusScope.of(context).unfocus();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Değerlendirmeniz eklendi.'),
-        backgroundColor: Color(0xFF5D4037),
-      ),
-    );
+    if (success) {
+      setState(() {
+        _selectedRating = 0;
+        _ratingError = null;
+        _commentController.clear();
+      });
+
+      FocusScope.of(context).unfocus();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Değerlendirmeniz kaydedildi.'),
+          backgroundColor: Color(0xFF5D4037),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(reviewProvider.submitError ?? 'Değerlendirme gönderilemedi.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   String? _resolveCategoryName(BuildContext context, int categoryId) {
@@ -152,6 +182,13 @@ class _ArtworkDetailScreenState extends State<ArtworkDetailScreen> {
 
     final categoryName = _resolveCategoryName(context, artwork.categoryId);
     final authProvider = _safeReadAuth(context);
+    final reviewProvider = _safeReadReview(context);
+    final currentArtwork = reviewProvider?.artworkDetail ?? artwork;
+    final reviews = reviewProvider?.reviews ?? const <ReviewModel>[];
+    final averageRating = reviewProvider?.averageRating ?? 0.0;
+    final isReviewLoading = reviewProvider?.isLoading ?? false;
+    final reviewError = reviewProvider?.errorMessage;
+    final isSubmitting = reviewProvider?.isSubmitting ?? false;
     final isLoggedIn = authProvider?.isLoggedIn ?? false;
 
     return Scaffold(
@@ -165,7 +202,7 @@ class _ArtworkDetailScreenState extends State<ArtworkDetailScreen> {
             backgroundColor: const Color(0xFF5D4037),
             foregroundColor: Colors.white,
             title: Text(
-              artwork.title,
+              currentArtwork.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -181,15 +218,15 @@ class _ArtworkDetailScreenState extends State<ArtworkDetailScreen> {
 
                 return GestureDetector(
                   onTap: expandRatio > 0.25
-                      ? () => _openFullScreenImage(context, artwork)
+                      ? () => _openFullScreenImage(context, currentArtwork)
                       : null,
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
                       Hero(
-                        tag: 'artwork-image-${artwork.id}',
+                        tag: 'artwork-image-${currentArtwork.id}',
                         child: CachedNetworkImage(
-                          imageUrl: artwork.imageUrl,
+                          imageUrl: currentArtwork.imageUrl,
                           fit: BoxFit.cover,
                           alignment: Alignment.center,
                           placeholder: (context, url) => Container(
@@ -303,7 +340,7 @@ class _ArtworkDetailScreenState extends State<ArtworkDetailScreen> {
                             const Icon(Icons.history_edu, size: 15, color: Color(0xFF3E2723)),
                             const SizedBox(width: 5),
                             Text(
-                              '${artwork.year}',
+                              '${currentArtwork.year}',
                               style: const TextStyle(
                                 color: Color(0xFF3E2723),
                                 fontSize: 12,
@@ -317,7 +354,7 @@ class _ArtworkDetailScreenState extends State<ArtworkDetailScreen> {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    artwork.title,
+                    currentArtwork.title,
                     style: const TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
@@ -332,7 +369,7 @@ class _ArtworkDetailScreenState extends State<ArtworkDetailScreen> {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          artwork.artist,
+                          currentArtwork.artist,
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -345,27 +382,28 @@ class _ArtworkDetailScreenState extends State<ArtworkDetailScreen> {
                   const SizedBox(height: 24),
 
                   // 5. Hafta - Görev 2: Zenginleştirilmiş Eser Hakkında Kartı
-                  _ArtworkDescriptionCard(description: artwork.description),
+                  _ArtworkDescriptionCard(description: currentArtwork.description),
                   const SizedBox(height: 16),
 
                   // 5. Hafta - Görev 2: Sanatçı Biyografisi Kartı
                   _ArtistBiographyCard(
-                    artistName: artwork.artist,
-                    artworkYear: artwork.year,
+                    artistName: currentArtwork.artist,
+                    artworkYear: currentArtwork.year,
                     categoryName: categoryName,
-                    customBio: artwork.artistBio,
-                    customPeriod: artwork.artistPeriod,
+                    customBio: currentArtwork.artistBio,
+                    customPeriod: currentArtwork.artistPeriod,
                   ),
                   const SizedBox(height: 24),
 
                   // 5. Hafta - Görev 3: Değerlendirme Özeti, 1-5 Yıldız Formu ve İnceleme Listesi
                   _ReviewSummaryHeader(
-                    averageRating: _averageRating,
-                    reviewCount: _reviews.length,
+                    averageRating: averageRating,
+                    reviewCount: reviews.length,
                   ),
                   const SizedBox(height: 14),
                   _ReviewFormCard(
                     isLoggedIn: isLoggedIn,
+                    isSubmitting: isSubmitting,
                     formKey: _reviewFormKey,
                     commentController: _commentController,
                     selectedRating: _selectedRating,
@@ -376,10 +414,47 @@ class _ArtworkDetailScreenState extends State<ArtworkDetailScreen> {
                         _ratingError = null;
                       });
                     },
-                    onSubmit: () => _handleSubmitReview(artwork, authProvider),
+                    onSubmit: () => _handleSubmitReview(currentArtwork, authProvider, reviewProvider),
                   ),
                   const SizedBox(height: 18),
-                  _ReviewListSection(reviews: _reviews),
+                  if (isReviewLoading)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: CircularProgressIndicator(color: Color(0xFF5D4037)),
+                      ),
+                    )
+                  else if (reviewError != null)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Column(
+                          children: [
+                            Text(
+                              reviewError,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.red[700]),
+                            ),
+                            const SizedBox(height: 8),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF5D4037),
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () {
+                                reviewProvider?.loadArtworkAndReviews(
+                                  currentArtwork.id,
+                                  fallbackArtwork: currentArtwork,
+                                );
+                              },
+                              child: const Text('Tekrar Dene'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    _ReviewListSection(reviews: reviews),
                   const SizedBox(height: 28),
                 ],
               ),
@@ -699,6 +774,7 @@ class _ReviewSummaryHeader extends StatelessWidget {
 
 class _ReviewFormCard extends StatelessWidget {
   final bool isLoggedIn;
+  final bool isSubmitting;
   final GlobalKey<FormState> formKey;
   final TextEditingController commentController;
   final int selectedRating;
@@ -708,6 +784,7 @@ class _ReviewFormCard extends StatelessWidget {
 
   const _ReviewFormCard({
     required this.isLoggedIn,
+    this.isSubmitting = false,
     required this.formKey,
     required this.commentController,
     required this.selectedRating,
@@ -854,7 +931,7 @@ class _ReviewFormCard extends StatelessWidget {
             const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
+              child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF5D4037),
                   foregroundColor: Colors.white,
@@ -863,12 +940,27 @@ class _ReviewFormCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                icon: const Icon(Icons.send_rounded, size: 18),
-                label: const Text(
-                  'Değerlendirmeyi Gönder',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                onPressed: onSubmit,
+                onPressed: isSubmitting ? null : onSubmit,
+                child: isSubmitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.send_rounded, size: 18),
+                          SizedBox(width: 8),
+                          Text(
+                            'Değerlendirmeyi Gönder',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
               ),
             ),
           ],
